@@ -1,23 +1,27 @@
+#[cfg(not(windows))]
+compile_error!("this program is for windows");
+
 use std::{
 	env,
 	io::{
 		self,
+		Error,
 		Read,
+		Result,
 	},
 	process,
 };
 
-#[link(name = "nvdaControllerClient64", kind = "static")]
 extern "C" {
-	fn nvdaController_speakText(s: *const i16) -> u32;
+	fn nvdaController_speakText(s: *const i16) -> i32;
 	fn nvdaController_testIfRunning() -> i32;
 }
 
-fn main() -> io::Result<()> {
+fn run() -> Result<()> {
 	unsafe {
 		if nvdaController_testIfRunning() != 0 {
 			eprintln!("error: could not communicate with NVDA");
-			process::exit(1);
+			process::exit(2);
 		}
 	}
 
@@ -44,6 +48,17 @@ fn main() -> io::Result<()> {
 
 	unsafe {
 		let res = nvdaController_speakText(s.as_ptr());
-		process::exit(res as _);
+		if res == 0 {
+			Ok(())
+		} else {
+			Err(Error::from_raw_os_error(res))
+		}
+	}
+}
+
+fn main() {
+	if let Err(e) = run() {
+		eprintln!("error: {e}");
+		process::exit(1);
 	}
 }
